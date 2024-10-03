@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property ROI Calculator</title>
+    <script src="https://unpkg.com/react@17.0.2/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17.0.2/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const BRMA_DATA = {
+            "Ashford": { "CAT A": 90.50, "CAT B": 172.60, "CAT C": 195.62, "CAT D": 252.64, "CAT E": 331.40 },
+            "Aylesbury": { "CAT A": 101.87, "CAT B": 184.11, "CAT C": 228.99, "CAT D": 306.08, "CAT E": 379.73 },
+            // Add more BRMA data here...
+        };
+
+        function PropertyROICalculator() {
+            const [propertyDetails, setPropertyDetails] = React.useState({
+                purchasePrice: 0,
+                numberOfRooms: 1,
+                rentAsWhole: true,
+                brma: "Ashford",
+                roomCategories: ["CAT A"],
+                annualMaintenance: 0,
+                annualInsurance: 0,
+                managementFees: 0,
+                socialHousingUplift: 0,
+                stampDutyApplies: false,
+                stampDutyRate: 0,
+            });
+
+            const [roi, setRoi] = React.useState({ percentage: 0, amount: 0 });
+
+            React.useEffect(() => {
+                setPropertyDetails(prev => ({
+                    ...prev,
+                    roomCategories: Array(Number(prev.numberOfRooms)).fill("CAT A")
+                }));
+            }, [propertyDetails.numberOfRooms]);
+
+            const handleInputChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                setPropertyDetails(prev => ({
+                    ...prev,
+                    [name]: type === 'checkbox' ? checked : value
+                }));
+            };
+
+            const handleBrmaChange = (e) => {
+                setPropertyDetails(prev => ({
+                    ...prev,
+                    brma: e.target.value
+                }));
+            };
+
+            const handleRoomCategoryChange = (index, value) => {
+                setPropertyDetails(prev => ({
+                    ...prev,
+                    roomCategories: prev.roomCategories.map((cat, i) => i === index ? value : cat)
+                }));
+            };
+
+            const calculateROI = () => {
+                const {
+                    purchasePrice, numberOfRooms, rentAsWhole, brma, roomCategories,
+                    annualMaintenance, annualInsurance, managementFees, socialHousingUplift,
+                    stampDutyApplies, stampDutyRate
+                } = propertyDetails;
+
+                const upliftMultiplier = 1 + (Number(socialHousingUplift) / 100);
+
+                let annualRent = 0;
+                if (rentAsWhole) {
+                    const category = `CAT ${String.fromCharCode(65 + Math.min(Number(numberOfRooms) - 1, 4))}`;
+                    annualRent = BRMA_DATA[brma][category] * 52 * upliftMultiplier;
+                } else {
+                    annualRent = roomCategories.reduce((sum, category) => sum + BRMA_DATA[brma][category] * 52 * upliftMultiplier, 0);
+                }
+
+                const totalCosts = Number(annualMaintenance) + Number(annualInsurance) + Number(managementFees);
+                const annualProfit = annualRent - totalCosts;
+
+                let totalInvestment = Number(purchasePrice);
+                if (stampDutyApplies) {
+                    const stampDuty = (Number(purchasePrice) * Number(stampDutyRate)) / 100;
+                    totalInvestment += stampDuty;
+                }
+
+                const roiPercentage = totalInvestment > 0 ? (annualProfit / totalInvestment) * 100 : 0;
+                const roiAmount = annualProfit;
+
+                setRoi({ percentage: roiPercentage, amount: roiAmount });
+            };
+
+            const formatCurrency = (amount) => {
+                return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount);
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto p-4 bg-white shadow-md rounded-lg">
+                    <h1 className="text-2xl font-bold mb-4">Property ROI Calculator</h1>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="purchasePrice" className="block mb-1">Purchase Price (£)</label>
+                            <input
+                                id="purchasePrice"
+                                name="purchasePrice"
+                                type="number"
+                                value={propertyDetails.purchasePrice}
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="numberOfRooms" className="block mb-1">Number of Rooms</label>
+                            <input
+                                id="numberOfRooms"
+                                name="numberOfRooms"
+                                type="number"
+                                min="1"
+                                max="5"
+                                value={propertyDetails.numberOfRooms}
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <input
+                                id="rentAsWhole"
+                                name="rentAsWhole"
+                                type="checkbox"
+                                checked={propertyDetails.rentAsWhole}
+                                onChange={handleInputChange}
+                                className="form-checkbox"
+                            />
+                            <label htmlFor="rentAsWhole">Rent as Whole</label>
+                        </div>
+                        <div>
+                            <label htmlFor="brma" className="block mb-1">BRMA</label>
+                            <select
+                                id="brma"
+                                value={propertyDetails.brma}
+                                onChange={handleBrmaChange}
+                                className="w-full p-2 border rounded"
+                            >
+                                {Object.keys(BRMA_DATA).map(brma => (
+                                    <option key={brma} value={brma}>{brma}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {!propertyDetails.rentAsWhole && propertyDetails.roomCategories.map((category, index) => (
+                            <div key={index}>
+                                <label htmlFor={`room${index}`} className="block mb-1">Room {index + 1} Category</label>
+                                <select
+                                    id={`room${index}`}
+                                    value={category}
+                                    onChange={(e) => handleRoomCategoryChange(index, e.target.value)}
+                                    className="w-full p-2 border rounded"
+                                >
+                                    {["CAT A", "CAT B", "CAT C", "CAT D", "CAT E"].map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ))}
+                        <div>
+                            <label htmlFor="annualMaintenance" className="block mb-1">Annual Maintenance (£)</label>
+                            <input
+                                id="annualMaintenance"
+                                name="annualMaintenance"
+                                type="number"
+                                value={propertyDetails.annualMaintenance}
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="annualInsurance" className="block mb-1">Annual Insurance (£)</label>
+                            <input
+                                id="annualInsurance"
+                                name="annualInsurance"
+                                type="number"
+                                value={propertyDetails.annualInsurance}
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="managementFees" className="block mb-1">Annual Management Fees (£)</label>
+                            <input
+                                id="managementFees"
+                                name="managementFees"
+                                type="number"
+                                value={propertyDetails.managementFees}
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="socialHousingUplift" className="block mb-1">Social Housing Provider Uplift (%)</label>
+                            <input
+                                id="socialHousingUplift"
+                                name="socialHousingUplift"
+                                type="number"
+                                min="0"
+                                value={propertyDetails.socialHousingUplift}
+                                onChange={handleInputChange}
+                                className="w-full p-2 border rounded"
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <input
+                                id="stampDutyApplies"
+                                name="stampDutyApplies"
+                                type="checkbox"
+                                checked={propertyDetails.stampDutyApplies}
+                                onChange={handleInputChange}
+                                className="form-checkbox"
+                            />
+                            <label htmlFor="stampDutyApplies">Does Stamp Duty Apply</label>
+                        </div>
+                        {propertyDetails.stampDutyApplies && (
+                            <div>
+                                <label htmlFor="stampDutyRate" className="block mb-1">Enter Stamp Duty Rate (%)</label>
+                                <input
+                                    id="stampDutyRate"
+                                    name="stampDutyRate"
+                                    type="number"
+                                    min="0"
+                                    step="0.1"
+                                    value={propertyDetails.stampDutyRate}
+                                    onChange={handleInputChange}
+                                    className="w-full p-2 border rounded"
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <button className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" onClick={calculateROI}>Calculate ROI</button>
+                    {roi.percentage !== 0 && (
+                        <div className="mt-4">
+                            <p>ROI: {roi.percentage.toFixed(2)}%</p>
+                            <p>Annual Return: {formatCurrency(roi.amount)}</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<PropertyROICalculator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
